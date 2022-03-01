@@ -21,30 +21,9 @@ func dsn() string {
 	return fmt.Sprintf("%s:%s@tcp(%s)/%s", username, password, hostname, dbname)
 }
 
-func OpenConnection() {
+func execute(ctx context.Context, sql string) {
 
-	d, err := sql.Open("mysql", dsn())
-	if err != nil {
-		log.Fatal(err)
-	}
-	db = d
-	defer db.Close()
-}
-
-func CreateDatabase() {
-
-	d, err := sql.Open("mysql", dsn())
-	if err != nil {
-		log.Fatal(err)
-	}
-	db = d
-
-	defer db.Close()
-
-	ctx, cancelfunc := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancelfunc()
-
-	res, err := db.ExecContext(ctx, "CREATE DATABASE IF NOT EXISTS "+dbname)
+	res, err := db.ExecContext(ctx, sql)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -53,16 +32,38 @@ func CreateDatabase() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("rows affected %d\n", no)
+	fmt.Printf("rows affected %d\n", no)
+
 }
 
-func InsertArtist(name string) (int64, error) {
+func openConnection() {
 
 	d, err := sql.Open("mysql", dsn())
 	if err != nil {
 		log.Fatal(err)
 	}
 	db = d
+}
+
+func ConfigureDatabase() {
+
+	openConnection()
+	defer db.Close()
+
+	ctx, cancelfunc := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelfunc()
+
+	fmt.Printf("Creating database...")
+	execute(ctx, "CREATE DATABASE IF NOT EXISTS "+dbname)
+	fmt.Printf("Deleting songs...")
+	execute(ctx, "delete from songs")
+	fmt.Printf("Deleting artists...")
+	execute(ctx, "delete from artists")
+}
+
+func InsertArtist(name string) (int64, error) {
+
+	openConnection()
 	defer db.Close()
 
 	res, err := db.Exec("INSERT INTO artists (name) VALUES (?)",
@@ -75,11 +76,7 @@ func InsertArtist(name string) (int64, error) {
 
 func InsertSong(artistDbId int64, title string, lyrick string) (int64, error) {
 
-	d, err := sql.Open("mysql", dsn())
-	if err != nil {
-		log.Fatal(err)
-	}
-	db = d
+	openConnection()
 	defer db.Close()
 
 	res, err := db.Exec("INSERT INTO songs (artists_id, title, lyrick) VALUES (?, ?, ?)",

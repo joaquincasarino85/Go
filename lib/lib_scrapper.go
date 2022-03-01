@@ -1,4 +1,4 @@
-package main
+package lib
 
 import (
 	"fmt"
@@ -26,7 +26,7 @@ func getWebServer(url string) ws.WebServer {
 	}
 }
 
-func getHtmlContent(url string) *goquery.Document {
+func GetHtmlContent(url string) *goquery.Document {
 	ws := getWebServer(url)
 	resp := ws.Connect()
 	defer resp.Body.Close()
@@ -37,9 +37,9 @@ func getHtmlContent(url string) *goquery.Document {
 	return doc
 }
 
-func getSongLyrics(artistId string, songId string) Song {
+func GetSongLyrics(artistId string, songId string) Song {
 
-	songLyricsHtml := getHtmlContent(ws.Url_Rock + "/artistas/" + artistId + "/letras/" + songId)
+	songLyricsHtml := GetHtmlContent(ws.Url_Rock + "/artistas/" + artistId + "/letras/" + songId)
 
 	div := songLyricsHtml.Find("div.post-content-text")
 	title := div.Find("h3").Text()
@@ -50,9 +50,9 @@ func getSongLyrics(artistId string, songId string) Song {
 	}
 }
 
-func getSongs(artistId string) []string {
+func GetSongs(artistId string) []string {
 
-	songsHtml := getHtmlContent(ws.Url_Rock + "/artistas/" + artistId + "/letras")
+	songsHtml := GetHtmlContent(ws.Url_Rock + "/artistas/" + artistId + "/letras")
 	songsList := []string{}
 	songsHtml.Find("ul.canciones").Each(func(i int, s *goquery.Selection) {
 		s.Find("a").Each(func(i int, s1 *goquery.Selection) {
@@ -66,9 +66,9 @@ func getSongs(artistId string) []string {
 	return songsList
 }
 
-func getArtists(url string) []Artist {
+func GetArtists(url string) []Artist {
 
-	artistsHtml := getHtmlContent(url)
+	artistsHtml := GetHtmlContent(url)
 	artistsList := []Artist{}
 	artistsHtml.Find("ul.canciones").Each(func(i int, s *goquery.Selection) {
 		s.Find("a").Each(func(j int, s1 *goquery.Selection) {
@@ -86,31 +86,30 @@ func getArtists(url string) []Artist {
 	return artistsList
 }
 
-func processEntities(artistsList [][]Artist) {
+func ProcessArtists(artists []Artist) {
 
-	for _, v := range artistsList {
-		for _, z := range v {
-			fmt.Println("Inserting artist: ", z.name)
-			artistDbId, err := db.InsertArtist(z.name)
+	for _, z := range artists {
+		fmt.Println("Inserting artist: ", z.name)
+		artistDbId, err := db.InsertArtist(z.name)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		songsList := GetSongs(z.id)
+		if len(songsList) > 0 {
+			fmt.Println("Inserting songs ")
+		}
+		for _, s := range songsList {
+			songObj := GetSongLyrics(z.id, s)
+			_, err := db.InsertSong(artistDbId, songObj.title, songObj.lyrics)
 			if err != nil {
 				log.Fatal(err)
 			}
-
-			songsList := getSongs(z.id)
-			if len(songsList) > 0 {
-				fmt.Println("Inserting songs ")
-			}
-			for _, s := range songsList {
-				songObj := getSongLyrics(z.id, s)
-				_, err := db.InsertSong(artistDbId, songObj.title, songObj.lyrics)
-				if err != nil {
-					log.Fatal(err)
-				}
-			}
-			if len(songsList) > 0 {
-				fmt.Println("OK!")
-			}
 		}
+		if len(songsList) > 0 {
+			fmt.Println("OK!")
+		}
+
 	}
 
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"project/scrapper/db"
+	"project/scrapper/lib"
 	"project/scrapper/ws"
 
 	"github.com/PuerkitoBio/goquery"
@@ -12,24 +13,27 @@ import (
 
 func main() {
 
-	db.OpenConnection()
-	db.CreateDatabase()
+	db.ConfigureDatabase()
 
-	doc := getHtmlContent(ws.Url_Rock)
+	doc := lib.GetHtmlContent(ws.Url_Rock)
 
-	// LLeno la lista de ids de artistas
+	// Get artist list ids  la lista
 	fmt.Println("Getting artists")
-	artistsList := [][]Artist{}
+	artistsList := [][]lib.Artist{}
 	div := doc.Find(".abctop")
 	div.Find("a").Each(func(i int, s *goquery.Selection) {
 		href, exists := s.Attr("href")
 		if exists {
-			artistsList = append(artistsList, getArtists("https://rock.com.ar"+href))
+			artistsList = append(artistsList, lib.GetArtists("https://rock.com.ar"+href))
 			fmt.Printf(".")
 		}
 	})
 	fmt.Println("OK!")
 
-	processEntities(artistsList)
+	for _, v := range artistsList {
+		lib.ProcessArtists(v)
+	}
+
 	fmt.Println("\n...End")
+
 }
