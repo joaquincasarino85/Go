@@ -5,23 +5,15 @@ import (
 	"project/scrapper/db"
 	"project/scrapper/lib"
 	"project/scrapper/ws"
-	"runtime"
-	"sync"
 
 	"github.com/PuerkitoBio/goquery"
 
 	_ "github.com/go-sql-driver/mysql"
 )
 
-var wg sync.WaitGroup
-var mu sync.Mutex
-
-func main() {
-
-	db.ConfigureDatabase()
+func send(c chan<- [][]lib.Artist) {
 
 	doc := lib.GetHtmlContent(ws.Url_Rock)
-
 	// Get artist list ids
 	fmt.Println("Getting artists")
 	artistsList := [][]lib.Artist{}
@@ -33,25 +25,25 @@ func main() {
 			fmt.Printf(".")
 		}
 	})
-	fmt.Println("OK!")
 
-	fmt.Println("Number of CPUs:", runtime.NumCPU())
-	fmt.Println("Number of Go Routines will be:", len(artistsList))
+	c <- artistsList
+}
 
-	wg.Add(len(artistsList))
-	for i := 0; i < len(artistsList); i++ {
-		value := artistsList[i]
-		go func() {
-			mu.Lock()
-			lib.ProcessArtists(value)
-			runtime.Gosched()
-			mu.Unlock()
-			wg.Done()
-		}()
+func read(c <-chan [][]lib.Artist) {
+
+	for _, v := range <-c {
+		lib.ProcessArtists(v)
 	}
+}
 
-	wg.Wait()
+func main() {
 
+	db.ConfigureDatabase()
+
+	c := make(chan [][]lib.Artist)
+	go send(c)
+
+	read(c)
 	fmt.Println("\n...End")
 
 }

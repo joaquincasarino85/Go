@@ -17,7 +17,7 @@ func main() {
 
 	doc := lib.GetHtmlContent(ws.Url_Rock)
 
-	// Get artist list ids  la lista
+	// Get artist list ids
 	fmt.Println("Getting artists")
 	artistsList := [][]lib.Artist{}
 	div := doc.Find(".abctop")
